@@ -41,17 +41,20 @@ Languages={
 
 ArgDict=dict()
 for i in sys.argv[1:]:
-	if '-' in i:
-		ArgDict[i.replace('-','').upper()[0]]=list()
-		CurrentArg=i.replace('-','').upper()[0]
-	else:
-		ArgDict[CurrentArg].append(i)#Gotta be a better way to do that whole "negative indexing" thing.
+	try:
+		ArgDict[CurrentArg].append(int(i))
+	except:
+		if '-' in i:
+			ArgDict[i.replace('-','').lower()[0]]=list()
+			CurrentArg=i.replace('-','').lower()[0]
+		else:
+			ArgDict[CurrentArg].append(i)#Gotta be a better way to do that whole "negative indexing" thing.
 
 for i in ArgDict:
 	if len(ArgDict[i])==1:#There's probably some way to reference it without [i] every time.
 		ArgDict[i]=ArgDict[i][0]
 
-if 'H' in ArgDict.keys() or '?' in ArgDict.keys():
+if 'h' in ArgDict.keys() or '?' in ArgDict.keys():
 	sys.exit(
 """-h\t--help\t\tDisplay this help screen.
 -s\t--speed\t\tThe target amount of time a cycle takes, as a fraction of a second. (Default is .15)
@@ -74,7 +77,16 @@ if 'H' in ArgDict.keys() or '?' in ArgDict.keys():
 \t(b)inary
 \tRoman (n)umerals
 \tCu(r)rencies
+-c\t--colour\tChanges the colour of the trails.
+\t0: (R)ed
+\t1: (G)reen
+\t2: (B)lue
+\t3: Gr(A)y
+\t4: (RGB)
+\t5: (RGBA)
 """)
+	
+#It seems like I'm going to have to make my own argv module. That will come later.
 
 def ArgFraction(Index):
 	try:Var=float(ArgDict[Index])
@@ -84,20 +96,30 @@ def ArgFraction(Index):
 	except KeyError:Var=.5
 	return 1/(Var)#Can be a float, it gets rounded later.
 
-TrailFraction=ArgFraction('T')
-FreqMult=ArgFraction('A')
-try:Speed=float(ArgDict['S'])
+TrailFraction=ArgFraction('t')
+FreqMult=ArgFraction('a')
+try:Speed=float(ArgDict['s'])
 except ValueError:
-		SlashLoc=ArgDict['S'].find('/')
-		Speed=int(ArgDict['S'][:SlashLoc])  /  int(ArgDict['S'][SlashLoc+1:])
+		SlashLoc=ArgDict['s'].find('/')
+		Speed=int(ArgDict['s'][:SlashLoc])  /  int(ArgDict['s'][SlashLoc+1:])
 except KeyError:Speed=.15
 
-try:Fluctuation=int(ArgDict['F'])
+try:Fluctuation=int(ArgDict['f'])
 except KeyError:Fluctuation=20
 
+ColourModes=('R','G','B','A','RGB','RGBA')
+try:
+	ColourMode=int(ArgDict['c'])
+	ColourMode=min(5,max(0,ColourMode))
+except ValueError:
+	ColourMode=ArgDict['c'].upper()
+	try:ColourMode=ColourModes.index(ColourMode)
+	except:ColourMode=1
+except KeyError:ColourMode=1
+
 Letters=list()
-if 'L' in ArgDict.keys():
-	for i in ArgDict['L']:
+if 'l' in ArgDict.keys():
+	for i in ArgDict['l']:
 		if i in Languages.keys():
 			Letters.extend(Languages[i])
 else:
@@ -115,7 +137,7 @@ Frequency=int(WindSheild[1]*FreqMult)
 
 def LetterTone():
 	return str(max(0,min(255,
-		int(Block*ColourCap)+
+		int(Block[0]*ColourCap)+
 		randint(-(Fluctuation),Fluctuation))))
 
 def ChangeTrail(Gloss):
@@ -124,8 +146,9 @@ def ChangeTrail(Gloss):
 	NewTrailLength=int(Gloss[1]/TrailFraction)
 	for i in range(len(Matrix)):
 		for g in range(len(Matrix[i])):
-			if Matrix[i][g]==TrailLength:
-				Matrix[i][g]=NewTrailLength
+			if Matrix[i][g]!=0:
+				if Matrix[i][g][0]==TrailLength:
+					Matrix[i][g][0]=NewTrailLength
 	TrailLength=NewTrailLength
 	ColourCap=255/TrailLength
 
@@ -143,12 +166,20 @@ def ResizeWindsheild(WindSheild):
 			if not 'R' in ArgDict.keys():
 				for Refill in range(WindSheild[0],Glass[0]):
 					if randint(0,Frequency)==0:
-						Matrix[i][Refill]=TrailLength
+						if ColourMode<4:
+							ItemCol=ColourMode
+							Matrix[i][Refill]=[TrailLength,ItemCol]
+						elif ColourMode==4:
+							ItemCol=randint(0,2)
+							Matrix[i][Refill]=[TrailLength,ItemCol]
+						elif ColourMode==5:
+							ItemCol=randint(0,3)
+							Matrix[i][Refill]=[TrailLength,ItemCol]
 						iPos=i
 						for Streak in range(TrailLength-1,0,-1):
 							iPos-=1
 							try:
-								Matrix[iPos][Refill]=Streak
+								Matrix[iPos][Refill]=[Streak,ItemCol]
 							except IndexError:
 								pass
 
@@ -162,6 +193,17 @@ def ResizeWindsheild(WindSheild):
 	WindSheild=Glass
 	return WindSheild
 
+def LetterThingy(Col):
+		match Col:
+			case 0:return f'\x1b[38;2;{LetterTone()};0;0m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
+			case 1:return f'\x1b[38;2;0;{LetterTone()};0m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
+			case 2:return f'\x1b[38;2;0;0;{LetterTone()}m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
+			case 3:
+				Intensity=LetterTone()
+				return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
+			case 4:LetterThingy(randint(0,2))
+			case 5:LetterThingy(randint(0,3))
+
 sys.stdout.write('\x1b[?25l')
 while True:
 	StartLoop=time()
@@ -172,17 +214,23 @@ while True:
 		Matrix.insert(0,[0]*WindSheild[0])
 		for i in range(WindSheild[0]):
 			if Matrix[1][i]!=0:
-				Matrix[0][i]=Matrix[1][i]-1
+				if Matrix[1][i][0]!=0:
+					Matrix[0][i]=[Matrix[1][i][0]-1,Matrix[1][i][1]]
 		
 		for i in range(WindSheild[0]):
 			if randint(0,Frequency)==0:
-				Matrix[0][i]=TrailLength
+				if ColourMode<4:
+					Matrix[0][i]=[TrailLength,ColourMode]
+				elif ColourMode==4:
+					Matrix[0][i]=[TrailLength,randint(0,2)]
+				elif ColourMode==5:
+					Matrix[0][i]=[TrailLength,randint(0,3)]
 		Buffer=str()
 		for Row in Matrix:
 			for Block in Row:
-				if Block==TrailLength:Buffer+=f'\x1b[1;38;2;255;255;255m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
-				elif Block!=0:Buffer+=f'\x1b[38;2;0;{LetterTone()};0m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
-				else:Buffer+=' '
+				if Block==0:Buffer+=' '
+				elif Block[0]==TrailLength:Buffer+=f'\x1b[1;38;2;255;255;255m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
+				else:Buffer+=LetterThingy(Block[1])
 			Buffer+='\n'
 		sys.stdout.write(Buffer)
 		sys.stdout.write('\x1b[0;0H')
