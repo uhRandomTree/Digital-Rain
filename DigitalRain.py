@@ -61,7 +61,7 @@ if 'h' in ArgDict.keys() or '?' in ArgDict.keys():
 -t\t--trail-length\tTrail length, as a fraction of the screen. (Default is 1/2)
 -f\t--fluctuation\tFluctuation in the colour of the trail. (Default is 20)
 -a\t--amount\tNumber of droplets coming down the screen. Can be a fraction or integer. (Default is 1/2)
--r\t--refill\tWhen resizing the window, fill the space with extra droplets. (Default true)
+-r\t--refill\tWhen resizing the window, fill the space with extra droplets. (Default true, this turn it off.)
 -l\t--language\tLetters that can fall. Add the letters, seperated by spaces, to this argument to add them. (Case sensitive)
 \t(K)atakana
 \t(E)nglish - Uppercase
@@ -135,46 +135,36 @@ TrailLength=int(WindSheild[1]/TrailFraction)
 ColourCap=255/TrailLength
 Frequency=int(WindSheild[1]*FreqMult)
 
-def LetterTone():
-	return str(max(0,min(255,
-		int(Block[0]*ColourCap)+
-		randint(-(Fluctuation),Fluctuation))))
-
 def ChangeTrail(Gloss):
 	global TrailLength
 	global ColourCap
 	NewTrailLength=int(Gloss[1]/TrailFraction)
-	for i in range(len(Matrix)):
-		for g in range(len(Matrix[i])):
+	for i in range(Gloss[1]):
+		for g in range(Gloss[0]):
 			if Matrix[i][g]!=0:
 				if Matrix[i][g][0]==TrailLength:
 					Matrix[i][g][0]=NewTrailLength
 	TrailLength=NewTrailLength
 	ColourCap=255/TrailLength
 
-
 def ResizeWindsheild(WindSheild):
 	Glass=list(get_terminal_size())
 	Glass[1]-=1
 
 	if WindSheild[0]>Glass[0]:
-		for i in range(len(Matrix)):
+		for i in range(WindSheild[1]):
 			del Matrix[i][-(WindSheild[0]-Glass[0]):]
 	elif WindSheild[0]<Glass[0]:
-		for i in range(len(Matrix)):
+		for i in range(WindSheild[1]):
 			Matrix[i].extend([0]*(Glass[0]-WindSheild[0]))
 			if not 'R' in ArgDict.keys():
 				for Refill in range(WindSheild[0],Glass[0]):
 					if randint(0,Frequency)==0:
 						if ColourMode<4:
 							ItemCol=ColourMode
-							Matrix[i][Refill]=[TrailLength,ItemCol]
-						elif ColourMode==4:
-							ItemCol=randint(0,2)
-							Matrix[i][Refill]=[TrailLength,ItemCol]
-						elif ColourMode==5:
-							ItemCol=randint(0,3)
-							Matrix[i][Refill]=[TrailLength,ItemCol]
+						else:#Right now this only works because of ColourModes 4 and 5 pointing to specific options, not foolproof.
+							ItemCol=randint(0,ColourMode-2)
+						Matrix[i][Refill]=[TrailLength,ItemCol]
 						iPos=i
 						for Streak in range(TrailLength-1,0,-1):
 							iPos-=1
@@ -192,6 +182,11 @@ def ResizeWindsheild(WindSheild):
 
 	WindSheild=Glass
 	return WindSheild
+
+def LetterTone():
+	return str(max(0,min(255,
+		int(Block[0]*ColourCap)+
+		randint(-(Fluctuation),Fluctuation))))
 
 def LetterThingy(Col):
 		match Col:
@@ -219,20 +214,16 @@ while True:
 		
 		for i in range(WindSheild[0]):
 			if randint(0,Frequency)==0:
-				if ColourMode<4:
-					Matrix[0][i]=[TrailLength,ColourMode]
-				elif ColourMode==4:
-					Matrix[0][i]=[TrailLength,randint(0,2)]
-				elif ColourMode==5:
-					Matrix[0][i]=[TrailLength,randint(0,3)]
-		Buffer=str()
+				if ColourMode<4:Matrix[0][i]=[TrailLength,ColourMode]
+				else:Matrix[0][i]=[TrailLength,randint(0,ColourMode-2)]#Right now this only works because of ColourModes 4 and 5 pointing to specific options, not foolproof 
+		Buffer=list()
 		for Row in Matrix:
 			for Block in Row:
-				if Block==0:Buffer+=' '
-				elif Block[0]==TrailLength:Buffer+=f'\x1b[1;38;2;255;255;255m{Letters[randint(0,len(Letters)-1)]}\x1b[0m'
-				else:Buffer+=LetterThingy(Block[1])
-			Buffer+='\n'
-		sys.stdout.write(Buffer)
+				if Block==0:Buffer.append(' ')
+				elif Block[0]==TrailLength:Buffer.append(f'\x1b[1;38;2;255;255;255m{Letters[randint(0,len(Letters)-1)]}\x1b[0m')
+				else:Buffer.append(LetterThingy(Block[1]))
+			Buffer.append('\n')
+		sys.stdout.write(''.join(Buffer))
 		sys.stdout.write('\x1b[0;0H')
 		sleep(max(0, Speed-(time()-StartLoop)))
 	except KeyboardInterrupt:sys.exit(f"\x1b[0m\x1b[?25h\x1b[{WindSheild[1]};0H")
