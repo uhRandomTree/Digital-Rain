@@ -1,7 +1,20 @@
-from random import randrange,choice
+from random import randrange,getrandbits
 from time import sleep,time
 from os import get_terminal_size
 import sys
+
+def choice(seq):
+	n=len(seq)
+	k = n.bit_length()
+	r = getrandbits(k)
+	while r >= n:
+		r = getrandbits(k)
+	return seq[r]
+
+def capmax(Num,Max):
+	if 0<Num and Num<Max:return Num
+	elif Num>Max:return Max
+	else:return 0
 
 #Unfortunately, all hirigana and kanji are full-width only. For now, all we have is katakana.
 Languages={
@@ -109,7 +122,7 @@ except KeyError:Fluctuation=20
 ColourModes=('R','G','B','A','RGB','RGBA')
 try:
 	ColourMode=int(ArgDict['c'])
-	ColourMode=min(5,max(0,ColourMode))
+	ColourMode=capmax(ColourMode,5)
 except ValueError:
 	ColourMode=ArgDict['c'].upper()
 	try:ColourMode=ColourModes.index(ColourMode)
@@ -131,7 +144,7 @@ WindSheild[1]-=1
 Matrix=[[0]*WindSheild[0]]*WindSheild[1]
 
 TrailLength=int(WindSheild[1]/TrailFraction)
-ColourCap=255/TrailLength
+ColourCap=int(255/TrailLength)
 Frequency=int(WindSheild[1]*FreqMult)
 
 def ChangeTrail(Gloss):
@@ -144,7 +157,7 @@ def ChangeTrail(Gloss):
 				if Matrix[i][g][0]==TrailLength:
 					Matrix[i][g][0]=NewTrailLength
 	TrailLength=NewTrailLength
-	ColourCap=255/TrailLength
+	ColourCap=int(255/TrailLength)
 
 def ResizeWindsheild(WindSheild):
 	Glass=list(get_terminal_size())
@@ -179,20 +192,21 @@ def ResizeWindsheild(WindSheild):
 	return WindSheild
 
 def LetterThingy(Col):
-	if Fluctuation!=0:Fluc=randrange(-(Fluctuation),Fluctuation)
-	else:Fluc=0
-	Intensity=max(0,
-	int(Block[0]*ColourCap)+
-	Fluc)
-	match Col:
-		case 0:return f'\x1b[38;2{Intensity};0;0m{choice(Letters)}\x1b[0m'
-		case 1:return f'\x1b[38;2;0;{Intensity};0m{choice(Letters)}\x1b[0m'
-		case 2:return f'\x1b[38;2;0;0;{Intensity}m{choice(Letters)}\x1b[0m'
-		case 3:return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{choice(Letters)}\x1b[0m'
-		case 4:LetterThingy(randrange(0,2))
-		case 5:LetterThingy(randrange(0,3))
+		if Fluctuation!=0:Fluc=randrange(-(Fluctuation),Fluctuation)
+		else:Fluc=0
+		Intensity=capmax(Block[0]*ColourCap+Fluc,255)
+		match Col:
+			case 0:return f'\x1b[38;2{Intensity};0;0m{choice(Letters)}\x1b[0m'
+			case 1:return f'\x1b[38;2;0;{Intensity};0m{choice(Letters)}\x1b[0m'
+			case 2:return f'\x1b[38;2;0;0;{Intensity}m{choice(Letters)}\x1b[0m'
+			case 3:return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{choice(Letters)}\x1b[0m'
+			case 4:LetterThingy(randrange(0,2))
+			case 5:LetterThingy(randrange(0,3))
 
 sys.stdout.write('\x1b[?25l')
+Buffer=list()
+Append=Buffer.append
+while True:
 	StartLoop=time()
 	try:
 		if get_terminal_size()[0]!=WindSheild[0] or get_terminal_size()[1]-1!=WindSheild[1]:
@@ -208,15 +222,17 @@ sys.stdout.write('\x1b[?25l')
 			if randrange(0,Frequency)==0:
 				if ColourMode<4:Matrix[0][i]=[TrailLength,ColourMode]
 				else:Matrix[0][i]=[TrailLength,randrange(0,ColourMode-2)]#Right now this only works because of ColourModes 4 and 5 pointing to specific options, not foolproof 
-		Buffer=list()
-		Append=Buffer.append
 		for Row in Matrix:
 			for Block in Row:
 				if Block==0:Append(' ')
 				elif Block[0]==TrailLength:Append(f'\x1b[1;38;2;255;255;255m{choice(Letters)}\x1b[0m')
 				else:Append(LetterThingy(Block[1]))
-			Buffer.append('\n')
+			Append('\n')
+		Append('\x1b[0;0H')
 		sys.stdout.write(''.join(Buffer))
-		sys.stdout.write('\x1b[0;0H')
-		sleep(max(0, Speed-(time()-StartLoop)))
-	except KeyboardInterrupt:sys.exit(f"\x1b[0m\x1b[?25h\x1b[{WindSheild[1]};0H")
+		del Buffer[:]
+		try:sleep(Speed-(time()-StartLoop))
+		except ValueError:continue
+	except KeyboardInterrupt:
+		# print('\x1b[2J')#For profiling, remove later.
+		sys.exit(f"\x1b[0m\x1b[?25h\x1b[{WindSheild[1]};0H")
