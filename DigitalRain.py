@@ -179,16 +179,18 @@ def ResizeWindsheild(WindSheild):
 	return WindSheild
 
 def LetterThingy(Col):
-		Intensity=max(0,
-		int(Block[0]*ColourCap)+
-		randrange(-(Fluctuation),Fluctuation))
-		match Col:
-			case 0:return f'\x1b[38;2{Intensity};0;0m{choice(Letters)}\x1b[0m'
-			case 1:return f'\x1b[38;2;0;{Intensity};0m{choice(Letters)}\x1b[0m'
-			case 2:return f'\x1b[38;2;0;0;{Intensity}m{choice(Letters)}\x1b[0m'
-			case 3:return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{choice(Letters)}\x1b[0m'
-			case 4:LetterThingy(randrange(0,2))
-			case 5:LetterThingy(randrange(0,3))
+	if Fluctuation!=0:Fluc=randrange(-(Fluctuation),Fluctuation)
+	else:Fluc=0
+	Intensity=max(0,
+	int(Block[0]*ColourCap)+
+	Fluc)
+	match Col:
+		case 0:return f'\x1b[38;2{Intensity};0;0m{choice(Letters)}\x1b[0m'
+		case 1:return f'\x1b[38;2;0;{Intensity};0m{choice(Letters)}\x1b[0m'
+		case 2:return f'\x1b[38;2;0;0;{Intensity}m{choice(Letters)}\x1b[0m'
+		case 3:return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{choice(Letters)}\x1b[0m'
+		case 4:LetterThingy(randrange(0,2))
+		case 5:LetterThingy(randrange(0,3))
 
 sys.stdout.write('\x1b[?25l')
 	StartLoop=time()
