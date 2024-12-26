@@ -1,7 +1,7 @@
 from random import random
 from time import sleep,time
 from os import get_terminal_size
-import sys
+from sys import exit as Exit,stdout,argv
 
 def randINT(max):
 	return int(random()*(max))
@@ -47,7 +47,7 @@ Languages={
 	#I would move this all to a file, but for it to be any more readable, it would need to store it without the whole escape code thing.
 }
 ArgDict=dict()
-for i in sys.argv[1:]:
+for i in argv[1:]:
 	try:
 		ArgDict[CurrentArg].append(int(i))
 	except:
@@ -62,7 +62,7 @@ for i in ArgDict:
 		ArgDict[i]=ArgDict[i][0]
 
 if 'h' in ArgDict.keys() or '?' in ArgDict.keys():
-	sys.exit(
+	Exit(
 """-h\t--help\t\tDisplay this help screen.
 -s\t--speed\t\tThe target amount of time a cycle takes, as a fraction of a second. (Default is .15)
 -t\t--trail-length\tTrail length, as a fraction of the screen. (Default is 1/2)
@@ -117,11 +117,11 @@ except KeyError:Fluctuation=20
 ColourModes=('R','G','B','A','RGB','RGBA')
 try:
 	ColourMode=int(ArgDict['c'])
-	ColourMode=capmax(ColourMode,5)
+	ColourMode=capmax(ColourMode,6)
 except ValueError:
 	ColourMode=ArgDict['c'].upper()
 	try:ColourMode=ColourModes.index(ColourMode)
-	except:ColourMode=1
+	except ValueError:ColourMode=1
 except KeyError:ColourMode=1
 
 Letters=list()
@@ -167,9 +167,10 @@ def ResizeWindsheild(WindSheild):
 			Matrix[i].extend([0]*(Glass[0]-WindSheild[0]))
 			if not 'R' in ArgDict.keys():
 				for Refill in range(WindSheild[0],Glass[0]):
-					if randINT(Frequency+1)==0:
-						if ColourMode<3:ItemCol=ColourMode
-						else:ItemCol=randINT(ColourMode)
+					if randINT(Frequency)==0:
+						if ColourMode<4:ItemCol=ColourMode
+						elif ColourMode==4:ItemCol=randINT(3)
+						else: ItemCol=randINT(4)
 						Matrix[i][Refill]=[TrailLength,ItemCol]
 						iPos=i
 						for Streak in range(TrailLength-1,0,-1):
@@ -196,7 +197,7 @@ def LetterThingy(Col):
 			case 2:return f'\x1b[38;2;0;0;{Intensity}m{Letters[randINT(len(Letters))]}\x1b[0m'
 			case 3:return f'\x1b[38;2;{Intensity};{Intensity};{Intensity}m{Letters[randINT(len(Letters))]}\x1b[0m'
 
-sys.stdout.write('\x1b[?25l')
+stdout.write('\x1b[?25l')
 Buffer=list()
 Append=Buffer.append
 while True:
@@ -212,9 +213,10 @@ while True:
 					Matrix[0][i]=[Matrix[1][i][0]-1,Matrix[1][i][1]]
 		
 		for i in range(WindSheild[0]):
-			if randINT(Frequency+1)==0:
-				if ColourMode<3:Matrix[0][i]=[TrailLength,ColourMode]
-				else:Matrix[0][i]=[TrailLength,randINT(ColourMode)]
+			if randINT(Frequency)==0:
+				if ColourMode<4:Matrix[0][i]=[TrailLength,ColourMode]
+				elif ColourMode==4:Matrix[0][i]=[TrailLength,randINT(3)]
+				else: Matrix[0][i]=[TrailLength,randINT(4)]
 		for Row in Matrix:
 			for Block in Row:
 				if Block==0:Append(' ')
@@ -222,9 +224,9 @@ while True:
 				else:Append(LetterThingy(Block))
 			Append('\n')
 		Append('\x1b[0;0H')
-		sys.stdout.write(''.join(Buffer))
+		stdout.write(''.join(Buffer))
 		del Buffer[:]
 		try:sleep(Speed-(time()-StartLoop))
 		except ValueError:continue
 	except KeyboardInterrupt:
-		sys.exit(f"\x1b[0m\x1b[?25h\x1b[{WindSheild[1]};0H")
+		Exit(f"\x1b[0m\x1b[?25h\x1b[{WindSheild[1]};0H")
